@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""a basic Flask app.
+"""A Basic Flask app with internationalization support.
 """
 import pytz
-from flask_babel import Babel
 from typing import Union, Dict
+from flask_babel import Babel, format_datetime
 from flask import Flask, render_template, request, g
 
 
 class Config:
-    """Flask Babel's config. representation.
+    """Represents a Flask Babel configuration.
     """
     LANGUAGES = ["en", "fr"]
     BABEL_DEFAULT_LOCALE = "en"
@@ -28,7 +28,7 @@ users = {
 
 
 def get_user() -> Union[Dict, None]:
-    """user id retrieval.
+    """Retrieves a user based on a user id.
     """
     login_id = request.args.get('login_as', '')
     if login_id:
@@ -38,7 +38,7 @@ def get_user() -> Union[Dict, None]:
 
 @app.before_request
 def before_request() -> None:
-    """resolution request
+    """Performs some routines before each request's resolution.
     """
     user = get_user()
     g.user = user
@@ -46,13 +46,19 @@ def before_request() -> None:
 
 @babel.localeselector
 def get_locale() -> str:
-    """web page locale retrieval.
+    """Retrieves the locale for a web page.
     """
-    locale = request.args.get('locale', '')
+    queries = request.query_string.decode('utf-8').split('&')
+    query_table = dict(map(
+        lambda x: (x if '=' in x else '{}='.format(x)).split('='),
+        queries,
+    ))
+    locale = query_table.get('locale', '')
     if locale in app.config["LANGUAGES"]:
         return locale
-    if g.user and g.user['locale'] in app.config["LANGUAGES"]:
-        return g.user['locale']
+    user_details = getattr(g, 'user', None)
+    if user_details and user_details['locale'] in app.config["LANGUAGES"]:
+        return user_details['locale']
     header_locale = request.headers.get('locale', '')
     if header_locale in app.config["LANGUAGES"]:
         return header_locale
@@ -61,7 +67,7 @@ def get_locale() -> str:
 
 @babel.timezoneselector
 def get_timezone() -> str:
-    """web page timezone retrieval.
+    """Retrieves the timezone for a web page.
     """
     timezone = request.args.get('timezone', '').strip()
     if not timezone and g.user:
@@ -74,9 +80,10 @@ def get_timezone() -> str:
 
 @app.route('/')
 def get_index() -> str:
-    """Home Page
+    """The home/index page.
     """
-    return render_template('7-index.html')
+    g.time = format_datetime()
+    return render_template('index.html')
 
 
 if __name__ == '__main__':
